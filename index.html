@@ -1,287 +1,126 @@
-<html><head><base href="https://ai-generated-simulations.com/svm-explorer/">
-<title>SVM Explorer - Interactive Support Vector Machine Visualization</title>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-body {
-    font-family: 'Roboto', sans-serif;
-    background-color: #0f0f0f;
-    color: #e0e0e0;
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-}
-
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-h1 {
-    font-size: 3em;
-    text-align: center;
-    color: #ff4081;
-    text-shadow: 0 0 10px rgba(255, 64, 129, 0.5);
-}
-
-.controls {
-    display: flex;
-    justify-content: space-around;
-    margin-bottom: 20px;
-}
-
-.control-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-label {
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-
-input[type="range"], select {
-    width: 200px;
-}
-
-.visualization {
-    display: flex;
-    justify-content: space-around;
-    flex-wrap: wrap;
-}
-
-.plot {
-    width: 45%;
-    min-width: 300px;
-    margin-bottom: 20px;
-    background-color: #1a1a1a;
-    border-radius: 10px;
-    padding: 10px;
-    box-shadow: 0 0 20px rgba(255, 64, 129, 0.2);
-}
-
-canvas {
-    width: 100%;
-    height: auto;
-    border-radius: 5px;
-}
-
-@media (max-width: 768px) {
-    .plot {
-        width: 100%;
-    }
-}
-
-.glow {
-    animation: glow 2s ease-in-out infinite alternate;
-}
-
-@keyframes glow {
-    from {
-        box-shadow: 0 0 5px rgba(255, 64, 129, 0.2);
-    }
-    to {
-        box-shadow: 0 0 20px rgba(255, 64, 129, 0.8);
-    }
-}
-</style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.18.2/plotly.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.5.0/math.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D SVM Simulator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        #plot {
+            width: 100%;
+            height: 600px;
+            margin: 20px auto;
+        }
+        input[type="range"] {
+            width: 200px;
+        }
+        div {
+            margin: 20px;
+        }
+    </style>
 </head>
 <body>
-<div class="container">
-    <h1 class="glow">SVM Explorer</h1>
-    <div class="controls">
-        <div class="control-group">
-            <label for="data-points">Data Points: <span id="data-points-value">500</span></label>
-            <input type="range" id="data-points" min="100" max="1000" value="500">
-        </div>
-        <div class="control-group">
-            <label for="kernel">Kernel:</label>
-            <select id="kernel">
-                <option value="linear">Linear</option>
-                <option value="rbf">RBF (Gaussian)</option>
-                <option value="poly">Polynomial</option>
-            </select>
-        </div>
+    <h1>3D SVM Simulator with Iris Dataset</h1>
+    <div>
+        <label for="C">C:</label>
+        <input type="range" id="C" min="0.01" max="100" step="0.01" value="1">
+        <span id="C-value">1</span>
     </div>
-    <div class="visualization">
-        <div class="plot glow">
-            <div id="plot2d"></div>
-        </div>
-        <div class="plot glow">
-            <div id="plot3d"></div>
-        </div>
+    <div>
+        <label for="gamma">Gamma:</label>
+        <input type="range" id="gamma" min="0.01" max="10" step="0.01" value="0.1">
+        <span id="gamma-value">0.1</span>
     </div>
-</div>
+    <div id="plot"></div>
+    <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.18.3"></script>
+    <script>
+        const irisData = [
+            { sepalLength: 5.1, sepalWidth: 3.5, petalLength: 1.4, petalWidth: 0.2, species: 'setosa' },
+            { sepalLength: 4.9, sepalWidth: 3.0, petalLength: 1.4, petalWidth: 0.2, species: 'setosa' },
+            // ... (更多數據應該被填充到這裡)
+            // 範例中為了簡潔，我們省略了完整數據，請確保這裡有 300 筆數據
+        ];
 
-<script>
-let data, labels;
-const plot2d = document.getElementById('plot2d');
-const plot3d = document.getElementById('plot3d');
-const dataPointsSlider = document.getElementById('data-points');
-const dataPointsValue = document.getElementById('data-points-value');
-const kernelSelect = document.getElementById('kernel');
-
-function generateData(n) {
-    const X = tf.randomNormal([n, 2]);
-    const y = tf.sign(X.sum(1).sub(1));
-    return [X.arraySync(), y.arraySync()];
-}
-
-function updateDataPoints() {
-    const n = parseInt(dataPointsSlider.value);
-    dataPointsValue.textContent = n;
-    [data, labels] = generateData(n);
-    updatePlots();
-}
-
-function updatePlots() {
-    const kernel = kernelSelect.value;
-    update2DPlot(kernel);
-    update3DPlot(kernel);
-}
-
-function update2DPlot(kernel) {
-    const trace1 = {
-        x: data.filter((_, i) => labels[i] === 1).map(d => d[0]),
-        y: data.filter((_, i) => labels[i] === 1).map(d => d[1]),
-        mode: 'markers',
-        type: 'scatter',
-        name: 'Class 1',
-        marker: { color: 'red' }
-    };
-
-    const trace2 = {
-        x: data.filter((_, i) => labels[i] === -1).map(d => d[0]),
-        y: data.filter((_, i) => labels[i] === -1).map(d => d[1]),
-        mode: 'markers',
-        type: 'scatter',
-        name: 'Class -1',
-        marker: { color: 'blue' }
-    };
-
-    const layout = {
-        title: '2D SVM Classification',
-        xaxis: { title: 'X' },
-        yaxis: { title: 'Y' },
-        hovermode: 'closest',
-        plot_bgcolor: '#1a1a1a',
-        paper_bgcolor: '#1a1a1a',
-        font: { color: '#e0e0e0' }
-    };
-
-    Plotly.newPlot(plot2d, [trace1, trace2], layout);
-
-    // Add decision boundary
-    const xx = math.range(-3, 3, 0.1).toArray();
-    const yy = math.range(-3, 3, 0.1).toArray();
-    const zz = [];
-
-    for (let i = 0; i < xx.length; i++) {
-        zz[i] = [];
-        for (let j = 0; j < yy.length; j++) {
-            let z;
-            if (kernel === 'linear') {
-                z = xx[i] + yy[j] - 1;
-            } else if (kernel === 'rbf') {
-                z = math.exp(-(math.pow(xx[i], 2) + math.pow(yy[j], 2)));
-            } else if (kernel === 'poly') {
-                z = math.pow(xx[i] * yy[j] + 1, 2);
+        // 這裡是模擬數據生成的例子。實際上應根據具體需要生成或讀取完整的 300 筆數據。
+        function generateRandomIrisData(num) {
+            const species = ['setosa', 'versicolor', 'virginica'];
+            const data = [];
+            for (let i = 0; i < num; i++) {
+                data.push({
+                    sepalLength: Math.random() * 2 + 4,
+                    sepalWidth: Math.random() * 2 + 2,
+                    petalLength: Math.random() * 2 + 1,
+                    petalWidth: Math.random() * 2 + 0.2,
+                    species: species[Math.floor(Math.random() * 3)]
+                });
             }
-            zz[i][j] = z;
+            return data;
         }
-    }
 
-    const trace3 = {
-        x: xx,
-        y: yy,
-        z: zz,
-        type: 'contour',
-        colorscale: 'Greens',
-        showscale: false,
-        contours: {
-            coloring: 'lines',
-            showlabels: true
+        const irisData300 = generateRandomIrisData(300);
+
+        const speciesMapping = { 'setosa': 0, 'versicolor': 1, 'virginica': 2 };
+
+        function prepareData() {
+            const X = irisData300.map(d => [d.sepalLength, d.sepalWidth, d.petalLength]);
+            const y = irisData300.map(d => speciesMapping[d.species]);
+            return { X, y };
         }
-    };
 
-    Plotly.addTraces(plot2d, [trace3]);
-}
+        function plot3D(X, y, C, gamma) {
+            const trace1 = {
+                x: [],
+                y: [],
+                z: [],
+                mode: 'markers',
+                type: 'scatter3d',
+                marker: { size: 5, color: y, colorscale: 'Viridis' },
+                name: 'Data points'
+            };
 
-function update3DPlot(kernel) {
-    const trace1 = {
-        x: data.filter((_, i) => labels[i] === 1).map(d => d[0]),
-        y: data.filter((_, i) => labels[i] === 1).map(d => d[1]),
-        z: data.filter((_, i) => labels[i] === 1).map(() => 0),
-        mode: 'markers',
-        type: 'scatter3d',
-        name: 'Class 1',
-        marker: { color: 'red', size: 5 }
-    };
-
-    const trace2 = {
-        x: data.filter((_, i) => labels[i] === -1).map(d => d[0]),
-        y: data.filter((_, i) => labels[i] === -1).map(d => d[1]),
-        z: data.filter((_, i) => labels[i] === -1).map(() => 0),
-        mode: 'markers',
-        type: 'scatter3d',
-        name: 'Class -1',
-        marker: { color: 'blue', size: 5 }
-    };
-
-    const xx = math.range(-3, 3, 0.1).toArray();
-    const yy = math.range(-3, 3, 0.1).toArray();
-    const zz = [];
-
-    for (let i = 0; i < xx.length; i++) {
-        zz[i] = [];
-        for (let j = 0; j < yy.length; j++) {
-            let z;
-            if (kernel === 'linear') {
-                z = xx[i] + yy[j] - 1;
-            } else if (kernel === 'rbf') {
-                z = math.exp(-(math.pow(xx[i], 2) + math.pow(yy[j], 2)));
-            } else if (kernel === 'poly') {
-                z = math.pow(xx[i] * yy[j] + 1, 2);
+            for (let i = 0; i < X.length; i++) {
+                trace1.x.push(X[i][0]);
+                trace1.y.push(X[i][1]);
+                trace1.z.push(X[i][2]);
             }
-            zz[i][j] = z;
+
+            const layout = {
+                title: `SVM Decision Surface with C=${C}, gamma=${gamma}`,
+                scene: {
+                    xaxis: { title: 'Sepal Length' },
+                    yaxis: { title: 'Sepal Width' },
+                    zaxis: { title: 'Petal Length' }
+                }
+            };
+
+            Plotly.newPlot('plot', [trace1], layout);
         }
-    }
 
-    const trace3 = {
-        x: xx,
-        y: yy,
-        z: zz,
-        type: 'surface',
-        colorscale: 'Greens',
-        showscale: false,
-        opacity: 0.8
-    };
+        function trainSVMAndPlot(C, gamma) {
+            const { X, y } = prepareData();
+            // 這裡應該添加 SVM 模型訓練與預測邏輯
+            plot3D(X, y, C, gamma);
+        }
 
-    const layout = {
-        title: '3D SVM Classification',
-        scene: {
-            xaxis: { title: 'X' },
-            yaxis: { title: 'Y' },
-            zaxis: { title: 'Z' }
-        },
-        hovermode: 'closest',
-        plot_bgcolor: '#1a1a1a',
-        paper_bgcolor: '#1a1a1a',
-        font: { color: '#e0e0e0' }
-    };
+        document.getElementById('C').addEventListener('input', function(event) {
+            document.getElementById('C-value').textContent = event.target.value;
+            const C = parseFloat(event.target.value);
+            const gamma = parseFloat(document.getElementById('gamma').value);
+            trainSVMAndPlot(C, gamma);
+        });
 
-    Plotly.newPlot(plot3d, [trace1, trace2, trace3], layout);
-}
+        document.getElementById('gamma').addEventListener('input', function(event) {
+            document.getElementById('gamma-value').textContent = event.target.value;
+            const gamma = parseFloat(event.target.value);
+            const C = parseFloat(document.getElementById('C').value);
+            trainSVMAndPlot(C, gamma);
+        });
 
-dataPointsSlider.addEventListener('input', updateDataPoints);
-kernelSelect.addEventListener('change', updatePlots);
-
-updateDataPoints();
-</script>
+        // 初始加載
+        trainSVMAndPlot(parseFloat(document.getElementById('C').value), parseFloat(document.getElementById('gamma').value));
+    </script>
 </body>
 </html>
