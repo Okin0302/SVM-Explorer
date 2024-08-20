@@ -1,126 +1,498 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D SVM Simulator</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-        }
-        #plot {
-            width: 100%;
-            height: 600px;
-            margin: 20px auto;
-        }
-        input[type="range"] {
-            width: 200px;
-        }
-        div {
-            margin: 20px;
-        }
-    </style>
+<html><head><base href="https://iris-classifier-3d.example.com/">
+<title>Futuristic 3D Iris Classifier with SVM Decision Boundary</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Roboto', Arial, sans-serif;
+    overflow: hidden;
+    background-color: #0a0a1a;
+    color: #e0e0e0;
+  }
+  #app {
+    display: flex;
+    flex-direction: row;
+    height: 100vh;
+  }
+  header {
+    background-color: rgba(30, 30, 50, 0.8);
+    color: #00ffff;
+    text-align: center;
+    padding: 10px 0;
+    box-shadow: 0 2px 10px rgba(0, 255, 255, 0.2);
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+  }
+  h1 {
+    margin: 0;
+    font-size: 1.5em;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  #chart-container {
+    flex: 1;
+    min-height: 0;
+    border: 1px solid #00ffff;
+    margin: 60px 10px 10px;
+    background-color: rgba(10, 10, 30, 0.8);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
+  }
+  .side-controls {
+    display: flex;
+    flex-direction: column;
+    padding: 70px 10px 10px;
+    background-color: rgba(20, 20, 40, 0.9);
+    overflow-y: auto;
+    width: 180px;
+  }
+  .control-group {
+    margin-bottom: 15px;
+    background-color: rgba(30, 30, 60, 0.8);
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  .control-group h3 {
+    margin: 0 0 10px 0;
+    font-size: 0.9em;
+    color: #00ffff;
+    text-transform: uppercase;
+  }
+  button {
+    margin: 5px 0;
+    padding: 8px 12px;
+    cursor: pointer;
+    color: #00ffff;
+    background-color: rgba(0, 255, 255, 0.1);
+    border: 1px solid #00ffff;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+  }
+  button:hover {
+    background-color: rgba(0, 255, 255, 0.2);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  }
+  select {
+    width: 100%;
+    padding: 5px;
+    margin-top: 5px;
+    background-color: rgba(30, 30, 60, 0.8);
+    color: #00ffff;
+    border: 1px solid #00ffff;
+    border-radius: 4px;
+  }
+  @media (max-width: 768px) {
+    #app {
+      flex-direction: column;
+    }
+    .side-controls {
+      width: 100%;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding-top: 60px;
+    }
+    .control-group {
+      flex: 1 1 45%;
+      margin: 5px;
+    }
+  }
+</style>
 </head>
 <body>
+<div id="app">
+  <header>
     <h1>3D SVM Simulator with Iris Dataset</h1>
-    <div>
-        <label for="C">C:</label>
-        <input type="range" id="C" min="0.01" max="100" step="0.01" value="1">
-        <span id="C-value">1</span>
+  </header>
+  <div class="side-controls" id="left-controls">
+    <div class="control-group">
+      <h3>Iris Types:</h3>
+      <button id="animateSetosa" style="border-color: #4CAF50;">Animate Setosa</button>
+      <button id="animateVersicolor" style="border-color: #2196F3;">Animate Versicolor</button>
+      <button id="animateVirginica" style="border-color: #F44336;">Animate Virginica</button>
     </div>
-    <div>
-        <label for="gamma">Gamma:</label>
-        <input type="range" id="gamma" min="0.01" max="10" step="0.01" value="0.1">
-        <span id="gamma-value">0.1</span>
+    <div class="control-group">
+      <h3>SVM Kernel:</h3>
+      <select id="kernelSelect">
+        <option value="linear">Linear</option>
+        <option value="rbf">RBF</option>
+        <option value="poly">Polynomial</option>
+      </select>
     </div>
-    <div id="plot"></div>
-    <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.18.3"></script>
-    <script>
-        const irisData = [
-            { sepalLength: 5.1, sepalWidth: 3.5, petalLength: 1.4, petalWidth: 0.2, species: 'setosa' },
-            { sepalLength: 4.9, sepalWidth: 3.0, petalLength: 1.4, petalWidth: 0.2, species: 'setosa' },
-            // ... (更多數據應該被填充到這裡)
-            // 範例中為了簡潔，我們省略了完整數據，請確保這裡有 300 筆數據
-        ];
+  </div>
+  <main>
+    <div id="chart-container"></div>
+  </main>
+  <div class="side-controls" id="right-controls">
+    <div class="control-group">
+      <h3>Flower Features:</h3>
+      <button id="animateSepalLength" style="border-color: #FF9800;">Sepal Length</button>
+      <button id="animateSepalWidth" style="border-color: #9C27B0;">Sepal Width</button>
+      <button id="animatePetalLength" style="border-color: #00BCD4;">Petal Length</button>
+      <button id="animatePetalWidth" style="border-color: #795548;">Petal Width</button>
+    </div>
+    <div class="control-group">
+      <button id="resetAnimation" style="border-color: #607D8B;">Reset Animation</button>
+    </div>
+  </div>
+</div>
 
-        // 這裡是模擬數據生成的例子。實際上應根據具體需要生成或讀取完整的 300 筆數據。
-        function generateRandomIrisData(num) {
-            const species = ['setosa', 'versicolor', 'virginica'];
-            const data = [];
-            for (let i = 0; i < num; i++) {
-                data.push({
-                    sepalLength: Math.random() * 2 + 4,
-                    sepalWidth: Math.random() * 2 + 2,
-                    petalLength: Math.random() * 2 + 1,
-                    petalWidth: Math.random() * 2 + 0.2,
-                    species: species[Math.floor(Math.random() * 3)]
-                });
-            }
-            return data;
+<script>
+// Model
+class IrisClassifierModel {
+  constructor() {
+    this.irisData = [];
+    this.irisFeatures = [];
+    this.svmPlane = null;
+    this.currentKernel = 'linear';
+  }
+
+  generateRandomIrisData() {
+    const species = ['setosa', 'versicolor', 'virginica'];
+    this.irisData = [];
+    
+    for (let i = 0; i < 150; i++) {
+      const speciesType = species[Math.floor(i / 50)];
+      const x = Math.random() * 100;
+      const y = Math.random() * 100;
+      const z = Math.random() * 100;
+      
+      this.irisData.push({x, y, z, species: speciesType, targetZ: z});
+    }
+  }
+
+  generateIrisFeatures() {
+    const features = ['sepalLength', 'sepalWidth', 'petalLength', 'petalWidth'];
+    this.irisFeatures = [];
+
+    for (let i = 0; i < 200; i++) {
+      const feature = features[i % 4];
+      const x = Math.random() * 100;
+      const y = Math.random() * 100;
+      const z = Math.random() * 100;
+
+      this.irisFeatures.push({x, y, z, feature: feature, targetZ: z});
+    }
+  }
+
+  generateSVMPlane() {
+    const x = math.range(0, 101, 1).toArray();
+    const y = math.range(0, 101, 1).toArray();
+    let z;
+
+    switch (this.currentKernel) {
+      case 'linear':
+        z = this.linearKernel(x, y);
+        break;
+      case 'rbf':
+        z = this.rbfKernel(x, y);
+        break;
+      case 'poly':
+        z = this.polyKernel(x, y);
+        break;
+      default:
+        z = this.linearKernel(x, y);
+    }
+
+    this.svmPlane = {x, y, z};
+  }
+
+  linearKernel(x, y) {
+    return Array(101).fill().map(() => Array(101).fill(50));
+  }
+
+  rbfKernel(x, y) {
+    return x.map(xi => y.map(yi => 50 + 25 * Math.sin(xi/10) * Math.cos(yi/10)));
+  }
+
+  polyKernel(x, y) {
+    return x.map(xi => y.map(yi => 50 + 0.005 * (xi - 50) * (yi - 50)));
+  }
+
+  animateSpecies(selectedSpecies) {
+    const svmHeight = 50;
+    
+    this.irisData.forEach(point => {
+      if (point.species === selectedSpecies) {
+        point.targetZ = Math.random() * (100 - svmHeight - 2.5) + svmHeight + 2.5;
+      } else {
+        point.targetZ = Math.random() * (svmHeight - 2.5);
+      }
+    });
+
+    this.irisFeatures.forEach(point => {
+      point.targetZ = Math.random() * (svmHeight - 2.5);
+    });
+  }
+
+  animateFeature(selectedFeature) {
+    const svmHeight = 50;
+    
+    this.irisFeatures.forEach(point => {
+      if (point.feature === selectedFeature) {
+        point.targetZ = Math.random() * (100 - svmHeight - 2.5) + svmHeight + 2.5;
+      } else {
+        point.targetZ = Math.random() * (svmHeight - 2.5);
+      }
+    });
+
+    this.irisData.forEach(point => {
+      point.targetZ = Math.random() * (svmHeight - 2.5);
+    });
+  }
+
+  resetAnimation() {
+    this.irisData.forEach(point => {
+      point.targetZ = Math.random() * 100;
+    });
+    this.irisFeatures.forEach(point => {
+      point.targetZ = Math.random() * 100;
+    });
+  }
+
+  updatePointPositions() {
+    let stillAnimating = false;
+
+    const updatePoints = (points) => {
+      points.forEach(point => {
+        if (Math.abs(point.z - point.targetZ) > 0.1) {
+          point.z += (point.targetZ - point.z) * 0.1;
+          stillAnimating = true;
+        } else {
+          point.z = point.targetZ;
         }
+      });
+    };
 
-        const irisData300 = generateRandomIrisData(300);
+    updatePoints(this.irisData);
+    updatePoints(this.irisFeatures);
 
-        const speciesMapping = { 'setosa': 0, 'versicolor': 1, 'virginica': 2 };
+    return stillAnimating;
+  }
 
-        function prepareData() {
-            const X = irisData300.map(d => [d.sepalLength, d.sepalWidth, d.petalLength]);
-            const y = irisData300.map(d => speciesMapping[d.species]);
-            return { X, y };
+  setKernel(kernel) {
+    this.currentKernel = kernel;
+    this.generateSVMPlane();
+  }
+}
+
+// View
+class IrisClassifierView {
+  constructor() {
+    this.chartContainer = document.getElementById('chart-container');
+  }
+
+  initChart(traces, layout) {
+    Plotly.newPlot(this.chartContainer, traces, layout, {responsive: true, displayModeBar: false});
+  }
+
+  updateChart(update) {
+    Plotly.restyle(this.chartContainer, update, [0, 1, 2, 3, 4, 5, 6]);
+  }
+
+  updateSVMPlane(svmPlane) {
+    Plotly.restyle(this.chartContainer, {
+      z: [svmPlane.z]
+    }, [7]);
+  }
+
+  createScatterTrace(data, key, color) {
+    const filteredData = data.filter(d => d[key] === key);
+    return {
+      x: filteredData.map(d => d.x),
+      y: filteredData.map(d => d.y),
+      z: filteredData.map(d => d.z),
+      mode: 'markers',
+      type: 'scatter3d',
+      name: key,
+      marker: {
+        color: color,
+        size: 4,
+        symbol: 'circle',
+        line: { color: '#ffffff', width: 0.5 },
+        opacity: 0.8
+      },
+      hoverinfo: 'text',
+      text: filteredData.map(d => `${key}<br>X: ${d.x.toFixed(2)}<br>Y: ${d.y.toFixed(2)}<br>Z: ${d.z.toFixed(2)}`)
+    };
+  }
+
+  createSurfaceTrace(data, colorscale, opacity) {
+    return {
+      x: data.x,
+      y: data.y,
+      z: data.z,
+      type: 'surface',
+      colorscale: colorscale,
+      opacity: opacity,
+      showscale: false
+    };
+  }
+}
+
+// Controller
+class IrisClassifierController {
+  constructor(model, view) {
+    this.model = model;
+    this.view = view;
+    this.animationFrameId = null;
+
+    this.initScene();
+    this.bindEvents();
+  }
+
+  initScene() {
+    this.model.generateRandomIrisData();
+    this.model.generateIrisFeatures();
+    this.model.generateSVMPlane();
+
+    const traces = [
+      this.view.createScatterTrace(this.model.irisData, 'setosa', '#4CAF50'),
+      this.view.createScatterTrace(this.model.irisData, 'versicolor', '#2196F3'),
+      this.view.createScatterTrace(this.model.irisData, 'virginica', '#F44336'),
+      this.view.createScatterTrace(this.model.irisFeatures, 'sepalLength', '#FF9800'),
+      this.view.createScatterTrace(this.model.irisFeatures, 'sepalWidth', '#9C27B0'),
+      this.view.createScatterTrace(this.model.irisFeatures, 'petalLength', '#00BCD4'),
+      this.view.createScatterTrace(this.model.irisFeatures, 'petalWidth', '#795548'),
+      this.view.createSurfaceTrace(this.model.svmPlane, [[0, '#001a33'], [1, '#0066cc']], 0.3)
+    ];
+
+    const layout = {
+      scene: {
+        aspectmode: 'cube',
+        xaxis: { title: 'X Coordinate', range: [0, 100], gridcolor: '#ffffff', gridwidth: 1 },
+        yaxis: { title: 'Y Coordinate', range: [0, 100], gridcolor: '#ffffff', gridwidth: 1 },
+        zaxis: { title: 'Z Coordinate', range: [0, 100], gridcolor: '#ffffff', gridwidth: 1 },
+        camera: { 
+          eye: { x: 1.5, y: 1.5, z: 1.5 },
+          center: { x: 0, y: 0, z: 0 }
         }
+      },
+      margin: { l: 0, r: 0, b: 0, t: 0 },
+      legend: { x: 0.8, y: 0.9 },
+      autosize: true,
+      hovermode: 'closest',
+      paper_bgcolor: 'rgba(10, 10, 30, 0)',
+      plot_bgcolor: 'rgba(10, 10, 30, 0)'
+    };
 
-        function plot3D(X, y, C, gamma) {
-            const trace1 = {
-                x: [],
-                y: [],
-                z: [],
-                mode: 'markers',
-                type: 'scatter3d',
-                marker: { size: 5, color: y, colorscale: 'Viridis' },
-                name: 'Data points'
-            };
+    this.view.initChart(traces, layout);
+  }
 
-            for (let i = 0; i < X.length; i++) {
-                trace1.x.push(X[i][0]);
-                trace1.y.push(X[i][1]);
-                trace1.z.push(X[i][2]);
-            }
+  bindEvents() {
+    document.getElementById('animateSetosa').addEventListener('click', () => this.animateSpecies('setosa'));
+    document.getElementById('animateVersicolor').addEventListener('click', () => this.animateSpecies('versicolor'));
+    document.getElementById('animateVirginica').addEventListener('click', () => this.animateSpecies('virginica'));
+    document.getElementById('animateSepalLength').addEventListener('click', () => this.animateFeature('sepalLength'));
+    document.getElementById('animateSepalWidth').addEventListener('click', () => this.animateFeature('sepalWidth'));
+    document.getElementById('animatePetalLength').addEventListener('click', () => this.animateFeature('petalLength'));
+    document.getElementById('animatePetalWidth').addEventListener('click', () => this.animateFeature('petalWidth'));
+    document.getElementById('resetAnimation').addEventListener('click', () => this.resetAnimation());
+    document.getElementById('kernelSelect').addEventListener('change', (e) => this.changeKernel(e.target.value));
 
-            const layout = {
-                title: `SVM Decision Surface with C=${C}, gamma=${gamma}`,
-                scene: {
-                    xaxis: { title: 'Sepal Length' },
-                    yaxis: { title: 'Sepal Width' },
-                    zaxis: { title: 'Petal Length' }
-                }
-            };
+    window.addEventListener('resize', () => {
+      Plotly.Plots.resize(this.view.chartContainer);
+    });
+  }
 
-            Plotly.newPlot('plot', [trace1], layout);
-        }
+  animateSpecies(species) {
+    this.model.animateSpecies(species);
+    this.animate();
+  }
 
-        function trainSVMAndPlot(C, gamma) {
-            const { X, y } = prepareData();
-            // 這裡應該添加 SVM 模型訓練與預測邏輯
-            plot3D(X, y, C, gamma);
-        }
+  animateFeature(feature) {
+    this.model.animateFeature(feature);
+    this.animate();
+  }
 
-        document.getElementById('C').addEventListener('input', function(event) {
-            document.getElementById('C-value').textContent = event.target.value;
-            const C = parseFloat(event.target.value);
-            const gamma = parseFloat(document.getElementById('gamma').value);
-            trainSVMAndPlot(C, gamma);
-        });
+  resetAnimation() {
+    cancelAnimationFrame(this.animationFrameId);
+    this.model.resetAnimation();
+    this.animate();
+  }
 
-        document.getElementById('gamma').addEventListener('input', function(event) {
-            document.getElementById('gamma-value').textContent = event.target.value;
-            const gamma = parseFloat(event.target.value);
-            const C = parseFloat(document.getElementById('C').value);
-            trainSVMAndPlot(C, gamma);
-        });
+  changeKernel(kernel) {
+    this.model.setKernel(kernel);
+    this.view.updateSVMPlane(this.model.svmPlane);
+  }
 
-        // 初始加載
-        trainSVMAndPlot(parseFloat(document.getElementById('C').value), parseFloat(document.getElementById('gamma').value));
-    </script>
-</body>
-</html>
+  animate() {
+    cancelAnimationFrame(this.animationFrameId);
+    
+    const animateFrame = () => {
+      const stillAnimating = this.model.updatePointPositions();
+      this.updateScatterTraces();
+
+      if (stillAnimating) {
+        this.animationFrameId = requestAnimationFrame(animateFrame);
+      }
+    };
+
+    animateFrame();
+  }
+
+  updateScatterTraces() {
+    const update = {
+      x: [
+        this.model.irisData.filter(d => d.species === 'setosa').map(d => d.x),
+        this.model.irisData.filter(d => d.species === 'versicolor').map(d => d.x),
+        this.model.irisData.filter(d => d.species === 'virginica').map(d => d.x),
+        this.model.irisFeatures.filter(d => d.feature === 'sepalLength').map(d => d.x),
+        this.model.irisFeatures.filter(d => d.feature === 'sepalWidth').map(d => d.x),
+        this.model.irisFeatures.filter(d => d.feature === 'petalLength').map(d => d.x),
+        this.model.irisFeatures.filter(d => d.feature === 'petalWidth').map(d => d.x)
+      ],
+      y: [
+        this.model.irisData.filter(d => d.species === 'setosa').map(d => d.y),
+        this.model.irisData.filter(d => d.species === 'versicolor').map(d => d.y),
+        this.model.irisData.filter(d => d.species === 'virginica').map(d => d.y),
+        this.model.irisFeatures.filter(d => d.feature === 'sepalLength').map(d => d.y),
+        this.model.irisFeatures.filter(d => d.feature === 'sepalWidth').map(d => d.y),
+        this.model.irisFeatures.filter(d => d.feature === 'petalLength').map(d => d.y),
+        this.model.irisFeatures.filter(d => d.feature === 'petalWidth').map(d => d.y)
+      ],
+      z: [
+        this.model.irisData.filter(d => d.species === 'setosa').map(d => d.z),
+        this.model.irisData.filter(d => d.species === 'versicolor').map(d => d.z),
+        this.model.irisData.filter(d => d.species === 'virginica').map(d => d.z),
+        this.model.irisFeatures.filter(d => d.feature === 'sepalLength').map(d => d.z),
+        this.model.irisFeatures.filter(d => d.feature === 'sepalWidth').map(d => d.z),
+        this.model.irisFeatures.filter(d => d.feature === 'petalLength').map(d => d.z),
+        this.model.irisFeatures.filter(d => d.feature === 'petalWidth').map(d => d.z)
+      ],
+      text: [
+        this.model.irisData.filter(d => d.species === 'setosa').map(d => `Setosa<br>X: ${d.x.toFixed(2)}<br>Y: ${d.y.toFixed(2)}<br>Z: ${d.z.toFixed(2)}`),
+        this.model.irisData.filter(d => d.species === 'versicolor').map(d => `Versicolor<br>X: ${d.x.toFixed(2)}<br>Y: ${d.y.toFixed(2)}<br>Z: ${d.z.toFixed(2)}`),
+        this.model.irisData.filter(d => d.species === 'virginica').map(d => `Virginica<br>X: ${d.x.toFixed(2)}<br>Y: ${d.y.toFixed(2)}<br>Z: ${d.z.toFixed(2)}`),
+        this.model.irisFeatures.filter(d => d.feature === 'sepalLength').map(d => `Sepal Length<br>X: ${d.x.toFixed(2)}<br>Y: ${d.y.toFixed(2)}<br>Z: ${d.z.toFixed(2)}`),
+        this.model.irisFeatures.filter(d => d.feature === 'sepalWidth').map(d => `Sepal Width<br>X: ${d.x.toFixed(2)}<br>Y: ${d.y.toFixed(2)}<br>Z: ${d.z.toFixed(2)}`),
+        this.model.irisFeatures.filter(d => d.feature === 'petalLength').map(d => `Petal Length<br>X: ${d.x.toFixed(2)}<br>Y: ${d.y.toFixed(2)}<br>Z: ${d.z.toFixed(2)}`),
+        this.model.irisFeatures.filter(d => d.feature === 'petalWidth').map(d => `Petal Width<br>X: ${d.x.toFixed(2)}<br>Y: ${d.y.toFixed(2)}<br>Z: ${d.z.toFixed(2)}`)
+      ]
+    };
+
+    this.view.updateChart(update);
+  }
+}
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+  const model = new IrisClassifierModel();
+  const view = new IrisClassifierView();
+  new IrisClassifierController(model, view);
+});
+</script>
+</body></html>
